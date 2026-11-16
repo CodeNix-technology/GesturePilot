@@ -1,7 +1,7 @@
 # GestureSense 
 ### A Dual-Hand Gesture-Based Laptop Controller
 
-GestureSense 2.0 is a Python-based computer vision application that allows users to control laptop brightness and system volume using hand gestures captured through a webcam.
+GestureSense is a Python-based computer vision application that allows users to control laptop brightness and system volume using hand gestures captured through a webcam.
 
 ## Features
 
