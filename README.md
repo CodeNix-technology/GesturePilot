@@ -67,13 +67,25 @@ independent of how close your hand is to the camera. The result is clipped to
 
 ```text
 GesturePilot/
-├── combined_controller_clean.py   # Main application (all logic + UI)
-├── hand_landmarker.task           # Bundled MediaPipe hand model
-├── requirements.txt               # Python dependencies
-├── run.sh                         # Linux launcher (sets PYTHONPATH)
+├── windows/                          # Windows users start here
+│   ├── GesturePilot_Windows.py       # pycaw-based entry point
+│   ├── requirements.txt
+│   ├── run.bat
+│   └── README.md
+├── linux/                            # Linux users start here
+│   ├── GesturePilot_Linux.py         # ALSA/amixer-based entry point
+│   ├── requirements.txt
+│   ├── run.sh
+│   └── README.md
+├── hand_landmarker.task               # Shared MediaPipe hand model
+├── requirements.txt                   # Combined dependency reference
 ├── README.md
-└── .gitignore
+└── LICENSE
 ```
+
+Both platform scripts load `hand_landmarker.task` from the repository root, so
+do not move that file. Each platform folder has its own short README and can be
+used independently.
 
 ---
 
@@ -83,7 +95,12 @@ GesturePilot/
 - A working webcam
 - A graphical desktop session (the UI is an OpenCV window)
 
-Python packages are listed in `requirements.txt`:
+Install the `requirements.txt` inside the folder for your OS:
+
+| Folder | Extra packages |
+| --- | --- |
+| `windows/` | `opencv-python`, `mediapipe`, `numpy`, `screen-brightness-control`, `pycaw`, `comtypes` |
+| `linux/` | `opencv-python`, `mediapipe`, `numpy`, `screen-brightness-control` |
 
 | Package | Purpose |
 | --- | --- |
@@ -92,63 +109,72 @@ Python packages are listed in `requirements.txt`:
 | `numpy` | Distance math and smoothing |
 | `screen-brightness-control` | Cross-platform brightness adjustment |
 | `pycaw` + `comtypes` | Windows volume control |
-| `amixer` (ALSA) | Linux volume control (system tool, not a Python package) |
+| `amixer` (ALSA) | Linux volume control (system tool, install `alsa-utils`) |
 
-The MediaPipe model `hand_landmarker.task` is already included in the repo.
+The MediaPipe model `hand_landmarker.task` is already included in the repo root.
 
 ---
 
 ## Quick start
 
+Clone the repo first, then follow only the section for your OS.
+
 ### Windows
 
 ```powershell
 git clone <repo-url>
-cd GesturePilot
+cd GesturePilot\windows
 
 py -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
 
-python combined_controller_clean.py
+.\run.bat
 ```
+
+You can also run `python GesturePilot_Windows.py` directly. `run.bat` prefers
+the local `.venv` if it exists.
 
 ### Linux
 
-`pycaw` cannot be imported on Linux, so the app automatically uses ALSA
-`amixer` for volume. The launcher installs dependencies into a local `.deps`
-folder and sets `PYTHONPATH` for you.
+`pycaw` cannot be imported on Linux, so this version uses ALSA `amixer`
+directly — no Windows packages are installed.
 
 ```bash
 git clone <repo-url>
-cd GesturePilot
+cd GesturePilot/linux
 
-pip3 install --target .deps -r requirements.txt
-./run.sh
-```
-
-If `python3-venv` is available, you can also use a normal virtual environment:
-
-```bash
+sudo apt install alsa-utils
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-python combined_controller_clean.py
+
+./run.sh
 ```
 
-> Run the app from the project directory so `hand_landmarker.task` is found.
+If `python3-venv` is unavailable, install into the repo-root `.deps` folder
+and `run.sh` will pick it up automatically:
+
+```bash
+pip3 install --target ../.deps -r requirements.txt
+./run.sh
+```
 
 To run it in the background and keep logs:
 
 ```bash
-nohup ./run.sh > gesturesense.log 2>&1 &
+nohup ./run.sh > ../gesturepilot.log 2>&1 &
 ```
+
+> You can launch from any directory — both scripts resolve the model path from
+> their own location. Keep `hand_landmarker.task` at the repo root.
 
 ---
 
 ## Configuration
 
-Tune these constants near the top of `combined_controller_clean.py`:
+Tune these constants near the top of the script for your OS
+(`windows/GesturePilot_Windows.py` or `linux/GesturePilot_Linux.py`):
 
 | Constant | Default | Meaning |
 | --- | --- | --- |
@@ -169,10 +195,10 @@ If gestures feel too sensitive, increase `MIN_RATIO` or `SMOOTHING_FACTOR`.
 | Problem | Fix |
 | --- | --- |
 | `Unable to access webcam` | Check camera permissions and `CAMERA_INDEX` (`0` or `1`) |
-| `ImportError: pycaw` on Linux | Use `./run.sh` — Linux volume uses `amixer` instead |
+| `ImportError: pycaw` on Linux | Use `linux/GesturePilot_Linux.py` — it never imports `pycaw` |
 | Brightness does not change | Some desktop/VM displays expose no brightness control; `screen-brightness-control` needs DRM/X11/DDC/CI support |
 | Volume does not change | Check `amixer sget Master` on Linux or the default output device on Windows |
-| Model file not found | Run from the project folder; keep `hand_landmarker.task` next to the script |
+| Model file not found | Keep `hand_landmarker.task` at the repository root; both scripts resolve it relative to their own folder |
 | Slow detection | Close other camera apps; reduce camera resolution in the script |
 
 MediaPipe may print LiteRT/XNNPACK warnings at startup; these are informational
@@ -186,7 +212,7 @@ and do not affect the app.
 - [ ] Configurable sensitivity presets
 - [ ] Optional on-screen settings panel
 - [ ] Dry-run mode to preview changes without touching system settings
-- [ ] Separate Windows and Linux entry-point scripts
+- [x] Separate Windows and Linux entry-point scripts
 - [ ] Packaging into a single executable
 
 ---

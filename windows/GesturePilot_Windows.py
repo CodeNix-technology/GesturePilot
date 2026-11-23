@@ -4,11 +4,10 @@ import mediapipe as mp
 import numpy as np
 import math
 import time
-import platform
-import re
-import subprocess
+from pathlib import Path
 
 import screen_brightness_control as sbc
+from pycaw.pycaw import AudioUtilities
 
 
 # =====================================================
@@ -29,6 +28,11 @@ VOLUME_UPDATE_THRESHOLD = 0.005
 
 WINDOW_NAME = "GesturePilot | Dual-Hand Controller"
 
+# The model lives at the repository root and is shared by both platforms.
+MODEL_PATH = str(
+    Path(__file__).resolve().parent.parent / "hand_landmarker.task"
+)
+
 
 # =====================================================
 # 1. INITIALIZE SYSTEM CONTROLS
@@ -42,40 +46,9 @@ print("=" * 48)
 # Get current screen brightness
 smooth_brightness = float(sbc.get_brightness()[0])
 
-if platform.system() == "Windows":
-
-    # Connect to Windows audio
-    from pycaw.pycaw import AudioUtilities
-
-    devices = AudioUtilities.GetSpeakers()
-    volume = devices.EndpointVolume
-
-    def get_master_volume():
-        return float(volume.GetMasterVolumeLevelScalar())
-
-    def set_master_volume(value):
-        volume.SetMasterVolumeLevelScalar(value, None)
-
-else:
-
-    # Linux fallback: control the ALSA "Master" control with amixer
-    def run_amixer(action, *args):
-        return subprocess.run(
-            ["amixer", "-D", "default", action, "Master", *args],
-            capture_output=True,
-            text=True,
-            check=True,
-        ).stdout
-
-    def get_master_volume():
-        output = run_amixer("sget")
-        match = re.search(r"\[(\d+)%\]", output)
-        if not match:
-            raise RuntimeError("Unable to read volume from amixer.")
-        return int(match.group(1)) / 100.0
-
-    def set_master_volume(value):
-        run_amixer("sset", f"{int(round(value * 100))}%")
+# Connect to Windows audio
+devices = AudioUtilities.GetSpeakers()
+volume = devices.EndpointVolume
 
 
 # Get current volume
@@ -105,7 +78,7 @@ RunningMode = mp.tasks.vision.RunningMode
 options = HandLandmarkerOptions(
 
     base_options=BaseOptions(
-        model_asset_path="hand_landmarker.task"
+        model_asset_path=MODEL_PATH
     ),
 
     running_mode=RunningMode.VIDEO,
@@ -567,7 +540,10 @@ try:
                                 ) >= VOLUME_UPDATE_THRESHOLD
                             ):
 
-                                set_master_volume(smooth_volume)
+                                volume.SetMasterVolumeLevelScalar(
+                                    smooth_volume,
+                                    None
+                                )
 
                                 previous_volume_update = smooth_volume
 
