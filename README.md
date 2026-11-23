@@ -199,4 +199,10 @@ with a real webcam before submitting.
 
 ---
 
+## License
+
+Released under the [MIT License](LICENSE).
+
+---
+
 **GesturePilot — control your laptop with gestures.**
