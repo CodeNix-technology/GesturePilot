@@ -199,6 +199,12 @@ with a real webcam before submitting.
 
 ---
 
+## Author
+
+**Y. Gokul Raaj**
+
+---
+
 ## License
 
 Released under the [MIT License](LICENSE).
