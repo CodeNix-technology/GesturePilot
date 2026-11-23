@@ -4,13 +4,15 @@ import mediapipe as mp
 import numpy as np
 import math
 import time
+import platform
+import re
+import subprocess
 
 import screen_brightness_control as sbc
-from pycaw.pycaw import AudioUtilities
 
 
 # =====================================================
-# GESTURESENSE 2.0 | CONFIGURATION
+# GESTUREPILOT 2.0 | CONFIGURATION
 # =====================================================
 
 CAMERA_INDEX = 0
@@ -25,7 +27,7 @@ LOCK_THRESHOLD = 5
 BRIGHTNESS_UPDATE_DELAY = 0.08
 VOLUME_UPDATE_THRESHOLD = 0.005
 
-WINDOW_NAME = "GestureSense | Dual-Hand Controller"
+WINDOW_NAME = "GesturePilot | Dual-Hand Controller"
 
 
 # =====================================================
@@ -33,21 +35,51 @@ WINDOW_NAME = "GestureSense | Dual-Hand Controller"
 # =====================================================
 
 print("\n" + "=" * 48)
-print("       GESTURESENSE 2.0")
+print("       GESTUREPILOT 2.0")
 print("       Dual-Hand Laptop Controller")
 print("=" * 48)
 
 # Get current screen brightness
 smooth_brightness = float(sbc.get_brightness()[0])
 
-# Connect to Windows audio
-devices = AudioUtilities.GetSpeakers()
-volume = devices.EndpointVolume
+if platform.system() == "Windows":
+
+    # Connect to Windows audio
+    from pycaw.pycaw import AudioUtilities
+
+    devices = AudioUtilities.GetSpeakers()
+    volume = devices.EndpointVolume
+
+    def get_master_volume():
+        return float(volume.GetMasterVolumeLevelScalar())
+
+    def set_master_volume(value):
+        volume.SetMasterVolumeLevelScalar(value, None)
+
+else:
+
+    # Linux fallback: control the ALSA "Master" control with amixer
+    def run_amixer(action, *args):
+        return subprocess.run(
+            ["amixer", "-D", "default", action, "Master", *args],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout
+
+    def get_master_volume():
+        output = run_amixer("sget")
+        match = re.search(r"\[(\d+)%\]", output)
+        if not match:
+            raise RuntimeError("Unable to read volume from amixer.")
+        return int(match.group(1)) / 100.0
+
+    def set_master_volume(value):
+        run_amixer("sset", f"{int(round(value * 100))}%")
+
 
 # Get current volume
-smooth_volume = float(
-    volume.GetMasterVolumeLevelScalar()
-)
+smooth_volume = float(get_master_volume())
 
 print(f"Brightness : {smooth_brightness:.0f}%")
 print(f"Volume     : {smooth_volume * 100:.0f}%")
@@ -105,7 +137,7 @@ last_brightness_update_time = 0
 
 start_time = time.monotonic()
 
-print("GestureSense initialized successfully!\n")
+print("GesturePilot initialized successfully!\n")
 
 
 # =====================================================
@@ -535,10 +567,7 @@ try:
                                 ) >= VOLUME_UPDATE_THRESHOLD
                             ):
 
-                                volume.SetMasterVolumeLevelScalar(
-                                    smooth_volume,
-                                    None
-                                )
+                                set_master_volume(smooth_volume)
 
                                 previous_volume_update = smooth_volume
 
@@ -726,5 +755,5 @@ finally:
     cv2.destroyAllWindows()
 
     print("\n" + "=" * 48)
-    print("       GESTURESENSE CLOSED")
+    print("       GESTUREPILOT CLOSED")
     print("=" * 48)
